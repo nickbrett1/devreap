@@ -24,6 +24,7 @@ way, and reap.py logs that the window was left behind.
 import os
 import re
 import subprocess
+import time
 
 APP = "Visual Studio Code"
 PROCESS = "Code"
@@ -67,6 +68,55 @@ def _title_matches(title, workspace):
     return re.search(rf"(?<![A-Za-z0-9_.-]){re.escape(base)}(?![A-Za-z0-9_.-])", title) is not None
 
 
+def _close_once(title, process, use_keystroke):
+    """One close attempt at a named window: raise it first, then either the AX
+    close button or ⌘⇧W (Close Window).
+
+    Raising matters: without it `click button 1` can land on whichever window is
+    actually frontmost. ⌘⇧W, not ⌘W — ⌘W closes the active *editor tab*, which
+    silently leaves the window open and reports success.
+    """
+    safe = title.replace('"', '\\"')
+    if use_keystroke:
+        action = 'keystroke "w" using {command down, shift down}'
+    else:
+        action = f'click button 1 of window "{safe}"'
+    script = (
+        f'tell application "System Events" to tell process "{process}"\n'
+        f'  set frontmost to true\n'
+        f'  perform action "AXRaise" of window "{safe}"\n'
+        f'  delay 0.4\n'
+        f'  {action}\n'
+        f'end tell'
+    )
+    return _osascript(script)
+
+
+def _gone(workspace, process, seconds):
+    """Wait for no window to match `workspace` any more."""
+    deadline = time.time() + seconds
+    while True:
+        titles, _ = list_window_titles(process)
+        if not any(_title_matches(t, workspace) for t in titles):
+            return True
+        if time.time() >= deadline:
+            return False
+        time.sleep(0.4)
+
+
+def _close_and_wait(title, workspace, process):
+    """Close one window and confirm it actually went away."""
+    for use_keystroke, budget in ((False, 5.0), (True, 5.0)):
+        _close_once(title, process, use_keystroke)
+        if _gone(workspace, process, budget):
+            return True
+    # A "save your changes?" sheet keeps the window open; dismiss it so it does
+    # not sit in front of every later close attempt.
+    _osascript('tell application "System Events" to key code 53')
+    time.sleep(0.3)
+    return _gone(workspace, process, 1.0)
+
+
 def close_workspace_window(workspace, process=PROCESS):
     """(ok, detail) — close the VS Code window whose title is `workspace`."""
     titles, err = list_window_titles(process)
@@ -79,29 +129,12 @@ def close_workspace_window(workspace, process=PROCESS):
     if not matches:
         return False, "no open window for this workspace"
 
-    closed, last_err = [], None
+    closed, left_open = [], []
     for title in matches:
-        safe = title.replace('"', '\\"')
-        # Close button first; fall back to raising the window and hitting ⌘W.
-        out, err = _osascript(
-            f'tell application "System Events" to tell process "{process}"\n'
-            f'  set frontmost to true\n'
-            f'  click button 1 of window "{safe}"\n'
-            f'end tell'
-        )
-        if err:
-            out, err = _osascript(
-                f'tell application "System Events" to tell process "{process}"\n'
-                f'  set frontmost to true\n'
-                f'  perform action "AXRaise" of window "{safe}"\n'
-                f'  keystroke "w" using command down\n'
-                f'end tell'
-            )
-        if err:
-            last_err = err
-        else:
-            closed.append(title)
+        (closed if _close_and_wait(title, workspace, process) else left_open).append(title)
 
-    if closed:
+    if closed and not left_open:
         return True, "closed: " + "; ".join(closed)
-    return False, f"could not close window ({last_err})"
+    if closed:
+        return True, "closed: " + "; ".join(closed) + " | left open: " + "; ".join(left_open)
+    return False, "window still open after close (unsaved changes?)"

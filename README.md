@@ -146,8 +146,14 @@ that isn't a clean API call: **VS Code implements no AppleScript suite** —
 `tell application "Visual Studio Code" to count windows` just times out — so
 devreap goes through System Events: it reads the window titles, matches the
 one whose title contains the workspace name (whole-token, so
-`galactic-unicorn` never matches `galactic-unicorn-remote`), and clicks its
-close button (falling back to ⌘W).
+`galactic-unicorn` never matches `galactic-unicorn-remote`), raises that
+window, and clicks its close button — falling back to **⌘⇧W** (*Close
+Window*), never ⌘W (*close editor tab*, which leaves the window open).
+
+After each attempt it re-reads the titles and only reports success once the
+window is actually gone. A window whose editor has unsaved changes shows a
+"save your changes?" sheet and will not close; devreap dismisses the sheet and
+reports the window as left open rather than force-discarding your buffer.
 
 That needs two things:
 
