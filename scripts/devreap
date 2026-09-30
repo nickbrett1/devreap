@@ -1,0 +1,22 @@
+#!/bin/bash
+# devreap — stop devcontainers whose project has gone quiet, and close their
+# VS Code windows. Usage: devreap [--dry-run] [--days N]
+# Installed to /usr/local/bin/devreap by install.py.
+set -euo pipefail
+
+CONFIG="${DEVREAP_CONFIG:-$HOME/.devreap/config.json}"
+if [ ! -f "$CONFIG" ]; then
+  echo "devreap is not installed. Run:" >&2
+  echo "  curl -fsSL https://raw.githubusercontent.com/nickbrett1/devreap/main/install.py | python3" >&2
+  exit 1
+fi
+
+INSTALL_DIR="$(python3 - "$CONFIG" <<'EOF'
+import json, sys
+with open(sys.argv[1]) as f:
+    print(json.load(f)["install_dir"])
+EOF
+)"
+
+export PYTHONPATH="$INSTALL_DIR${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m devreap "$@"

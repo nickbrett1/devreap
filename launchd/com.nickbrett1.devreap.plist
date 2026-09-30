@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.nickbrett1.devreap</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/devreap</string>
+  </array>
+  <!-- Once a day. Pick an hour you're usually not mid-build. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>10</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__DEVREAP_LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__DEVREAP_LOG__</string>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
