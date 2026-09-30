@@ -108,6 +108,7 @@ def main():
     cfg.setdefault("workspaces_dir", workspaces_dir)
     cfg.setdefault("buildkite_org", "nick-brett")
     cfg.setdefault("buildkite_token", "")
+    cfg.setdefault("min_container_age_hours", 12)
     cfg["install_dir"] = install_dir
     _write_json_600(config_path, cfg)
     print(f"Config written to {config_path} (mode 600).")

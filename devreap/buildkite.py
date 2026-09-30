@@ -17,9 +17,8 @@ Pure stdlib (urllib) — matches devopen's no-dependencies style.
 
 import json
 import re
-import urllib.error
+import subprocess
 import urllib.parse
-import urllib.request
 
 API = "https://api.buildkite.com/v2"
 
@@ -34,27 +33,47 @@ class BuildkiteError(RuntimeError):
 
 
 def _get(path, token, params=None, timeout=30):
+    """GET a Buildkite API path.
+
+    Shells out to curl with the config (including the token) on stdin, the
+    way devopen does for GitHub: the python3 that ships on this Mac (pyenv
+    3.11) has a broken `_ssl` — openssl@1.1 is gone — so urllib cannot do
+    https at all ("unknown url type: https"). curl doesn't care, and keeping
+    the token out of argv keeps it out of `ps`.
+    """
     url = f"{API}{path}"
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/json",
-    })
+    config = (
+        f'url = "{url}"\n'
+        f'header = "Authorization: Bearer {token}"\n'
+        'header = "Accept: application/json"\n'
+        "silent\nshow-error\n"
+        f"max-time = {timeout}\n"
+        'write-out = "\\n%{http_code}"\n'
+    )
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        detail = ""
-        try:
-            detail = e.read().decode("utf-8")[:200]
-        except Exception:
-            pass
-        raise BuildkiteError(f"HTTP {e.code} for {url}: {detail}") from e
-    except urllib.error.URLError as e:
+        r = subprocess.run(
+            ["curl", "-sS", "--config", "-"],
+            input=config, capture_output=True, text=True, timeout=timeout + 15,
+        )
+    except FileNotFoundError as e:
+        raise BuildkiteError("curl is required but not installed") from e
+    except subprocess.SubprocessError as e:
         raise BuildkiteError(f"could not reach Buildkite: {e}") from e
+
+    body, _, code = r.stdout.rpartition("\n")
+    code = code.strip()
+    if r.returncode != 0 and not code:
+        raise BuildkiteError(f"could not reach Buildkite: {r.stderr.strip() or r.returncode}")
+    if code == "404":
+        return None
+    if code != "200":
+        raise BuildkiteError(f"HTTP {code or '?'} for {url}: {body.strip()[:200]}")
+    try:
+        return json.loads(body) if body.strip() else None
+    except ValueError as e:
+        raise BuildkiteError(f"unexpected response from Buildkite: {body[:200]}") from e
 
 
 def is_automated(build):

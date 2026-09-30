@@ -58,6 +58,9 @@ wrong here only ever makes it *more* reluctant to reap.
   is attached, or there's an established ssh connection, it's left alone.
   (An open VS Code window is deliberately *not* a veto — windows stay open
   for days; if they counted, nothing would ever be reaped.)
+- **Never reaps a container younger than 12h.** Even if the project has been
+  quiet for days, a container started in the last 12 hours is one you just
+  opened — `min_container_age_hours` (default 12, set `0` to disable).
 - **Closes the VS Code window** it leaves behind (see below).
 - **Keeps everything it's unsure about.** No Buildkite token, no pipeline, no
   history → `keep`.
@@ -82,7 +85,7 @@ That clones to `~/DevOpen/devreap`, installs `/usr/local/bin/devreap`, writes
   "buildkite_org": "nick-brett",
   "buildkite_token": "",
   "days": 3,
-  "min_container_age_hours": 0,
+  "min_container_age_hours": 12,
   "close_windows": true,
   "keep": [],
   "ignore": [],
@@ -97,9 +100,10 @@ That clones to `~/DevOpen/devreap`, installs `/usr/local/bin/devreap`, writes
   it's job-scoped. Without a token devreap keeps everything.
   (`BUILDKITE_API_TOKEN` in the environment overrides it.)
 - **`days`** — the quiet threshold. Default 3.
-- **`min_container_age_hours`** — optional extra rail: never reap a container
-  that started less than this many hours ago (covers "I opened it ten minutes
-  ago and haven't built yet"). Default 0 (off).
+- **`min_container_age_hours`** — rail: never reap a container that started
+  less than this many hours ago. Default **12**, which covers "I opened it a
+  few minutes ago and haven't triggered a build yet" — the case the
+  time-since-last-build signal can't see. Set `0` to disable.
 - **`close_windows`** — close the workspace's VS Code window after stopping.
 - **`keep` / `ignore`** — workspace names to always keep, or to not even look
   at. No project is special-cased out of the box.

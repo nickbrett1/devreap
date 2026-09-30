@@ -8,7 +8,7 @@ Config lives at ~/.devreap/config.json (mode 600):
       "buildkite_org":     "nick-brett",
       "buildkite_token":   "<read-only API token>",
       "days":              3,        # reap when last human build is older than this
-      "min_container_age_hours": 0,  # extra rail: never reap a container younger than this
+      "min_container_age_hours": 12, # never reap a container younger than this
       "close_windows":     true,     # close the workspace's VS Code window after stopping
       "keep":              [],       # workspace names to never reap
       "ignore":            [],       # workspace names to not even look at
@@ -42,7 +42,7 @@ def _defaults(home=None):
         "buildkite_org": "nick-brett",
         "buildkite_token": "",
         "days": 3,
-        "min_container_age_hours": 0,
+        "min_container_age_hours": 12,
         "close_windows": True,
         "keep": [],
         "ignore": [],
