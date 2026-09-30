@@ -10,6 +10,7 @@ Installed as /usr/local/bin/devreap by install.py.
 
 import argparse
 import json
+import os
 import sys
 import warnings
 
@@ -18,14 +19,22 @@ warnings.filterwarnings("ignore", category=ResourceWarning)
 from . import __version__, config, containers, reap, vscode
 
 
+def _responsible_binary():
+    """The binary tccd will ask about: the Python interpreter running us."""
+    return os.path.realpath(sys.executable)
+
+
 def _print_windows():
     titles, err = vscode.list_window_titles()
     if err:
         print(f"System Events error: {err}", file=sys.stderr)
     if not titles:
+        # tccd attributes the System Events request to the *interpreter*, not to
+        # the shim in /usr/local/bin, so that path is what has to be granted.
         print("System Events sees no VS Code windows.\n"
-              "  • grant Accessibility to whatever runs devreap "
-              "(System Settings → Privacy & Security → Accessibility),\n"
+              "  • grant Accessibility (System Settings → Privacy & Security → Accessibility)\n"
+              "    to the binary that runs devreap:\n"
+              f"        {_responsible_binary()}\n"
               "  • and run it inside your GUI login session (Terminal, not a daemon).")
         return 1
     print(f"VS Code windows visible to System Events ({len(titles)}):")

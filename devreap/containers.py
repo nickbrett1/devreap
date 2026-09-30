@@ -7,10 +7,35 @@ builder daemons and anything else that happens to be running.
 """
 
 import json
-import shlex
+import os
+import shutil
 import subprocess
 
 LABEL = "devcontainer.local_folder"
+
+# launchd hands a LaunchAgent the bare PATH /usr/bin:/bin:/usr/sbin:/sbin, which
+# does not contain /usr/local/bin — so a bare "docker" fails under the nightly
+# run with "docker is not reachable" even though OrbStack is up. Resolve the
+# binary ourselves rather than depend on whoever's PATH we inherit.
+_DOCKER_PATHS = (
+    "/usr/local/bin/docker",
+    "/opt/homebrew/bin/docker",
+    "~/.orbstack/bin/docker",
+)
+
+
+def _docker_bin():
+    found = shutil.which("docker")
+    if found:
+        return found
+    for path in _DOCKER_PATHS:
+        path = os.path.expanduser(path)
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return "docker"
+
+
+DOCKER = _docker_bin()
 
 
 class DockerError(RuntimeError):
@@ -23,14 +48,14 @@ def _run(args, timeout=30):
 
 def docker_available():
     try:
-        r = _run(["docker", "info", "--format", "{{.ServerVersion}}"], timeout=20)
+        r = _run([DOCKER, "info", "--format", "{{.ServerVersion}}"], timeout=20)
         return r.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
 
 
 def _inspect(container_id, fmt, timeout=20):
-    r = _run(["docker", "inspect", "-f", fmt, container_id], timeout=timeout)
+    r = _run([DOCKER, "inspect", "-f", fmt, container_id], timeout=timeout)
     if r.returncode != 0:
         return ""
     return r.stdout.strip()
@@ -42,7 +67,7 @@ def list_devcontainers():
     `workspace` is the host path from the devcontainer label; its basename is
     the workspace/project name we join Buildkite pipelines on.
     """
-    r = _run(["docker", "ps", "-a", "-q", "--filter", f"label={LABEL}"])
+    r = _run([DOCKER, "ps", "-a", "-q", "--filter", f"label={LABEL}"])
     if r.returncode != 0:
         raise DockerError((r.stderr or "docker ps failed").strip())
 
@@ -64,7 +89,7 @@ def list_devcontainers():
 def _exec(container_id, argv, timeout=15):
     """Run argv inside the container; '' if the binary is missing or it fails."""
     try:
-        r = _run(["docker", "exec", container_id] + argv, timeout=timeout)
+        r = _run([DOCKER, "exec", container_id] + argv, timeout=timeout)
     except (OSError, subprocess.SubprocessError):
         return ""
     return r.stdout.strip() if r.returncode == 0 else ""
@@ -106,5 +131,5 @@ def stop(container_id, timeout=60):
     reopening from devopen/VS Code) brings it straight back, so nothing is
     lost but the RAM it was holding.
     """
-    r = _run(["docker", "stop", "-t", "10", container_id], timeout=timeout)
+    r = _run([DOCKER, "stop", "-t", "10", container_id], timeout=timeout)
     return r.returncode == 0, (r.stdout + r.stderr).strip()

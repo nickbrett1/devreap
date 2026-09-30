@@ -24,5 +24,13 @@
   <false/>
   <key>ProcessType</key>
   <string>Background</string>
+  <!-- launchd gives an agent the bare PATH /usr/bin:/bin:/usr/sbin:/sbin, which
+       has neither /usr/local/bin (docker, this script) nor /opt/homebrew/bin
+       (python3). Without this the job dies with "docker is not reachable". -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
 </dict>
 </plist>
