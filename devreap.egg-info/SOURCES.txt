@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+devreap/__init__.py
+devreap/__main__.py
+devreap/buildkite.py
+devreap/config.py
+devreap/containers.py
+devreap/reap.py
+devreap/vscode.py
+devreap.egg-info/PKG-INFO
+devreap.egg-info/SOURCES.txt
+devreap.egg-info/dependency_links.txt
+devreap.egg-info/top_level.txt
+tests/test_classify.py

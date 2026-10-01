@@ -68,6 +68,22 @@ def _title_matches(title, workspace):
     return re.search(rf"(?<![A-Za-z0-9_.-]){re.escape(base)}(?![A-Za-z0-9_.-])", title) is not None
 
 
+def windows_for(workspaces, process=PROCESS):
+    """(set of workspace paths that have a window open, error or None).
+
+    One System Events round-trip for the whole list rather than one per
+    workspace: a listing UI asks about every project at once, and each call
+    is a separate osascript process. Returns paths, preserving the caller's
+    spelling, so ids line up with the rows they came from.
+    """
+    titles, err = list_window_titles(process)
+    open_paths = {
+        ws for ws in workspaces
+        if any(_title_matches(t, ws) for t in titles)
+    }
+    return open_paths, err
+
+
 def _close_once(title, process, use_keystroke):
     """One close attempt at a named window: raise it first, then either the AX
     close button or ⌘⇧W (Close Window).
